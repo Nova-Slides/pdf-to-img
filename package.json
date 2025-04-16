@@ -1,5 +1,5 @@
 {
-  "name": "pdf-to-img",
+  "name": "@nova-slides/pdf-to-img",
   "version": "3.0.1",
   "author": "Kyle Hensel",
   "description": "📃📸 Converts PDFs to images in nodejs",
@@ -16,7 +16,10 @@
     "pdf-to-png",
     "jest"
   ],
-  "repository": "https://github.com/k-yle/pdf-to-img",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nova-Slides/pdf-to-img.git"
+  },
   "scripts": {
     "build": "tsc && rm -rf dist && mv temp/src dist && rm -rf temp",
     "lint": "eslint --ignore-path .gitignore .",
@@ -24,7 +27,7 @@
     "trypublish": "npm publish --provenance || true"
   },
   "bin": {
-    "pdf2img": "./bin/cli.mjs"
+    "pdf2img": "bin/cli.mjs"
   },
   "engines": {
     "node": ">=16.17"
