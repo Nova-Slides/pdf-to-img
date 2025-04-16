@@ -37,35 +37,51 @@ export type PdfMetadata = {
 export type Options = {
   /** For cases where the PDF is encrypted with a password */
   password?: string;
-  /** defaults to `1`. If you want high-resolution images, increase this */
+  /** @deprecated scale is not recommended with maxWidth or maxHeight, as scaling is determined by these values instead */
   scale?: number;
   /** document init parameters which are passed to pdfjs.getDocument */
   docInitParams?: Partial<DocumentInitParameters>;
+  /** Maximum width of the output image */
+  maxWidth?: number;
+  /** Maximum height of the output image */
+  maxHeight?: number;
+  /** If true, maintain aspect ratio when maxWidth or maxHeight are specified. Defaults to true. */
+  maintainAspectRatio?: boolean;
 };
+
+/**
+ * Helper function to calculate the scaled dimensions while maintaining aspect ratio
+ */
+function calculateAspectRatioFit(
+  srcWidth: number,
+  srcHeight: number,
+  maxWidth: number | undefined,
+  maxHeight: number | undefined
+): { width: number; height: number; scale: number } {
+  let width = srcWidth;
+  let height = srcHeight;
+  let scale = 1;
+
+  if (maxWidth && width > maxWidth) {
+    scale = maxWidth / width;
+    width = maxWidth;
+    height *= scale;
+  }
+
+  if (maxHeight && height > maxHeight) {
+    scale = maxHeight / height;
+    height = maxHeight;
+    width *= scale;
+  }
+
+  return { width: width, height: height, scale: scale };
+}
 
 /**
  * Converts a PDF to a series of images. This returns a `Symbol.asyncIterator`
  *
  * @param input Either (a) the path to a pdf file, or (b) a data url, or (c) a buffer, or (d) a ReadableStream.
  *
- * @example
- * ```js
- * import pdf from "pdf-to-img";
- *
- * for await (const page of await pdf("example.pdf")) {
- *   expect(page).toMatchImageSnapshot();
- * }
- *
- * // or if you want access to more details:
- *
- * const doc = await pdf("example.pdf");
- * expect(doc.length).toBe(1);
- * expect(doc.metadata).toEqual({ ... });
- *
- * for await (const page of doc) {
- *   expect(page).toMatchImageSnapshot();
- * }
- * ```
  */
 export async function pdf(
   input: string | Buffer | NodeJS.ReadableStream,
@@ -75,6 +91,12 @@ export async function pdf(
   metadata: PdfMetadata;
   [Symbol.asyncIterator](): AsyncIterator<Buffer, void, void>;
 }> {
+  if (options.scale && (options.maxWidth || options.maxHeight)) {
+    console.warn(
+      "pdf-to-img: The 'scale' option is not recommended when 'maxWidth' or 'maxHeight' are specified. Scaling is determined by the max values."
+    );
+  }
+
   const data = await parseInput(input);
 
   const pdfDocument = await pdfjs.getDocument({
@@ -99,8 +121,28 @@ export async function pdf(
           if (this.pg < pdfDocument.numPages) {
             this.pg += 1;
             const page = await pdfDocument.getPage(this.pg);
+            const originalViewport = page.getViewport({
+              scale: options.scale ?? 1,
+            });
 
-            const viewport = page.getViewport({ scale: options.scale ?? 1 });
+            let viewport: _pdfjs.PageViewport;
+
+            if (options.maintainAspectRatio) {
+              const dimensions = calculateAspectRatioFit(
+                originalViewport.width,
+                originalViewport.height,
+                options.maxWidth,
+                options.maxHeight
+              );
+              
+              viewport = page.getViewport({ scale: dimensions.scale * (options.scale ?? 1) });
+            } else {
+              const targetWidth = options.maxWidth ?? originalViewport.width;
+              const targetHeight = options.maxHeight ?? originalViewport.height;
+               viewport = page.getViewport({
+                 scale: Math.min(targetWidth / originalViewport.width, targetHeight / originalViewport.height)
+               })
+            }
 
             const canvasFactory = new NodeCanvasFactory();
             const { canvas, context } = canvasFactory.create(
