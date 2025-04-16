@@ -1,7 +1,8 @@
-// @vitest-environment jsdom
-import { createReadStream, promises as fs } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { pdf } from "../src/index.js";
+/**
+ * @jest-environment jsdom
+ */
+import { promises as fs, createReadStream } from "node:fs";
+import { pdf } from "../src";
 
 describe("example.pdf", () => {
   it("correctly generates a single png for the one page", async () => {
@@ -34,11 +35,6 @@ describe("multipage.pdf", () => {
     for await (const page of document) {
       expect(page).toMatchImageSnapshot();
     }
-  });
-
-  it("can read a specific page number", async () => {
-    const document = await pdf("./tests/multipage.pdf");
-    expect(await document.getPage(2)).toMatchImageSnapshot();
   });
 });
 
@@ -144,7 +140,7 @@ describe("invalid", () => {
       async () => pdf(1)
     ).rejects.toThrow(
       new Error(
-        "pdf-to-img received an unexpected input. Provide a path to file, a data URL, a Uint8Array, a Buffer, or a ReadableStream."
+        "pdf-to-img received an unexpected input. Provide a path to file, a data URL, a Buffer, or a ReadableStream."
       )
     );
   });
@@ -185,24 +181,4 @@ describe("weird fonts", () => {
       expect(page).toMatchImageSnapshot();
     }
   }, 10_000); // this is a slow test
-});
-
-describe("background colour", () => {
-  it("can generate transparent images", async () => {
-    for await (const page of await pdf("./tests/encrypted.pdf", {
-      password: "P@ssw0rd",
-      renderParams: { background: "transparent" },
-    })) {
-      expect(page).toMatchImageSnapshot();
-    }
-  });
-
-  it("can generate pngs with a custom background colour", async () => {
-    for await (const page of await pdf("./tests/encrypted.pdf", {
-      password: "P@ssw0rd",
-      renderParams: { background: "red" },
-    })) {
-      expect(page).toMatchImageSnapshot();
-    }
-  });
 });

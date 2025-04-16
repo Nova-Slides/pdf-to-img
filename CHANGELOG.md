@@ -7,34 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## 4.4.0 (2025-02-17)
-
-- Update `node-canvas` to v3
-
-## 4.3.0 (2024-11-14)
-
-- Remove polyfill for `global.window` which is now redundant
-
-## 4.2.0 (2024-11-02)
-
-- Add a new option called `renderParams`. This allows you to generate transparent images using `renderParams: { background: 'transparent' }` ([#244])
-
-[#244]: https://github.com/k-yle/pdf-to-img/pull/244
-
-## 4.1.1 (2024-09-17)
-
-- Fix bugs with the CLI on Windows
-
-## 4.1.0 (2024-08-07)
-
-- Added a new method to read a specific page number
-
-## 4.0.0 (2024-06-08)
-
-- 💥 BREAKING CHANGE: Drop support for node v16. The minimum version is now v18
-- 💥 BREAKING CHANGE: Convert to a pure ESM package. For more info, [see here](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c). This is unfortunately required to support pdfjs v4.
-- Updated pdfjs to v4
-
 ## 3.0.0 (2024-05-24)
 
 - 💥 BREAKING CHANGE: Drop support for node v14 and v16. The minimum version is now v16.17

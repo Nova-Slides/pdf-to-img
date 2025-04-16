@@ -4,20 +4,15 @@ on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x, 23.x]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [16.17, 18.x, 20.x, 21.x]
 
     steps:
-      - name: ⏬ switch off autocrlf
-        # see https://github.com/actions/checkout/issues/135
-        run: git config --global core.autocrlf false
-
       - name: ⏬ Checkout code
         uses: actions/checkout@v4
 
@@ -40,20 +35,19 @@ jobs:
 
       - name: 🧪 Test
         run: |
-          npm test -- --coverage
+          npm test
         env:
           FORCE_COLOR: 1
           JEST_IMAGE_SNAPSHOT_TRACK_OBSOLETE: 1
 
       - name: 📸 Upload failed screenshot tests
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: screenshots
           path: tests/__image_snapshots__/__diff_output__/*
 
       - name: 📈 Coveralls
-        continue-on-error: true # this integration is quite buggy
         uses: coverallsapp/github-action@3dfc5567390f6fa9267c0ee9c251e4c8c3f18949 # v2.2.3
         with:
           github-token: ${{ secrets.github_token }}

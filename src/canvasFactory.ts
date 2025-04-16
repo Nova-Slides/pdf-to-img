@@ -11,19 +11,11 @@ type NonNullableFactory = {
 };
 
 export class NodeCanvasFactory {
-  /* eslint-disable class-methods-use-this */
-  create(
-    width: number,
-    height: number,
-    transparent: boolean
-  ): NonNullableFactory {
+  /* eslint-disable class-methods-use-this, no-param-reassign */
+  create(width: number, height: number): NonNullableFactory {
     invariant(width > 0 && height > 0, "Invalid canvas size");
     const canvas = Canvas.createCanvas(width, height);
-    const context = canvas.getContext("2d", { alpha: transparent });
-
-    // ensure that the canvas background is transparent
-    if (transparent) context.clearRect(0, 0, width, height);
-
+    const context = canvas.getContext("2d");
     return {
       canvas,
       context,

@@ -1,20 +1,17 @@
-import { createRequire } from "node:module";
-import path from "node:path";
-import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
-import type {
-  DocumentInitParameters,
-  RenderParameters,
-} from "pdfjs-dist/types/src/display/api.js";
-import { NodeCanvasFactory } from "./canvasFactory.js";
-import { parseInput } from "./parseInput.js";
+import "./polyfill"; // do this before pdfjs
 
-const pdfjsPath = path.dirname(
-  createRequire(import.meta.url).resolve("pdfjs-dist/package.json")
-);
+import path from "node:path";
+// 🛑 inspite of esModuleInterop being on, you still need to use `import *`, and there are no typedefs
+import * as _pdfjs from "pdfjs-dist/legacy/build/pdf";
+import type { DocumentInitParameters } from "pdfjs-dist/types/src/display/api";
+import { NodeCanvasFactory } from "./canvasFactory";
+import { parseInput } from "./parseInput";
+
+const pdfjs: typeof import("pdfjs-dist") = _pdfjs;
+const pdfjsPath = path.dirname(require.resolve("pdfjs-dist/package.json"));
 
 /** required since k-yle/pdf-to-img#58, the objects from pdfjs are weirdly structured */
 const sanitize = (x: object) => {
-  // eslint-disable-next-line unicorn/prefer-structured-clone -- TODO: wait for min nodejs version to be bumped
   const object: Record<string, string> = JSON.parse(JSON.stringify(x));
 
   // remove UTF16 BOM and weird 0x0 character introduced in k-yle/pdf-to-img#138 and k-yle/pdf-to-img#184
@@ -42,8 +39,6 @@ export type Options = {
   password?: string;
   /** defaults to `1`. If you want high-resolution images, increase this */
   scale?: number;
-  /** render parameters which are passed to `PdfPage#render` */
-  renderParams?: Omit<RenderParameters, "canvasContext" | "viewport">;
   /** document init parameters which are passed to pdfjs.getDocument */
   docInitParams?: Partial<DocumentInitParameters>;
 };
@@ -51,7 +46,7 @@ export type Options = {
 /**
  * Converts a PDF to a series of images. This returns a `Symbol.asyncIterator`
  *
- * @param input Either (a) the path to a pdf file, or (b) a data url, or (b) a buffer, (c) a buffer, or (e) a ReadableStream.
+ * @param input Either (a) the path to a pdf file, or (b) a data url, or (c) a buffer, or (d) a ReadableStream.
  *
  * @example
  * ```js
@@ -73,62 +68,53 @@ export type Options = {
  * ```
  */
 export async function pdf(
-  input: string | Uint8Array | Buffer | NodeJS.ReadableStream,
+  input: string | Buffer | NodeJS.ReadableStream,
   options: Options = {}
 ): Promise<{
   length: number;
   metadata: PdfMetadata;
-  getPage(pageNumber: number): Promise<Buffer>;
   [Symbol.asyncIterator](): AsyncIterator<Buffer, void, void>;
 }> {
   const data = await parseInput(input);
 
-  const canvasFactory = new NodeCanvasFactory();
   const pdfDocument = await pdfjs.getDocument({
     password: options.password, // retain for backward compatibility, but ensure settings from docInitParams overrides this and others, if given.
     standardFontDataUrl: path.join(pdfjsPath, `standard_fonts${path.sep}`),
     cMapUrl: path.join(pdfjsPath, `cmaps${path.sep}`),
     cMapPacked: true,
-    ...options.docInitParams,
     isEvalSupported: false,
-    canvasFactory,
+    ...options.docInitParams,
     data,
   }).promise;
 
   const metadata = await pdfDocument.getMetadata();
 
-  async function getPage(pageNumber: number) {
-    const page = await pdfDocument.getPage(pageNumber);
-
-    const viewport = page.getViewport({ scale: options.scale ?? 1 });
-
-    const { canvas, context } = canvasFactory.create(
-      viewport.width,
-      viewport.height,
-      !!options.renderParams?.background
-    );
-
-    await page.render({
-      canvasContext: context,
-      viewport,
-      ...options.renderParams,
-    }).promise;
-
-    return canvas.toBuffer();
-  }
-
   return {
     length: pdfDocument.numPages,
     metadata: sanitize(metadata.info),
-    getPage,
     [Symbol.asyncIterator]() {
       return {
         pg: 0,
         async next(this: { pg: number }) {
           if (this.pg < pdfDocument.numPages) {
             this.pg += 1;
+            const page = await pdfDocument.getPage(this.pg);
 
-            return { done: false, value: await getPage(this.pg) };
+            const viewport = page.getViewport({ scale: options.scale ?? 1 });
+
+            const canvasFactory = new NodeCanvasFactory();
+            const { canvas, context } = canvasFactory.create(
+              viewport.width,
+              viewport.height
+            );
+
+            await page.render({
+              canvasContext: context,
+              viewport,
+              canvasFactory,
+            }).promise;
+
+            return { done: false, value: canvas.toBuffer() };
           }
           return { done: true, value: undefined };
         },
