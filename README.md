@@ -1,3 +1,9 @@
+This version is based on [pdf-to-img v3](https://github.com/k-yle/pdf-to-img) and adds the following options
+- `maxWidth` Maximum width of the output image
+- `maxHeight` Maximum height of the output image
+- `maintainAspectRatio` If true, maintain aspect ratio when maxWidth or maxHeight are specified. Defaults to true.
+
+
 # pdf-to-img
 
 [![Build Status](https://github.com/k-yle/pdf-to-img/workflows/Build%20and%20Test/badge.svg)](https://github.com/k-yle/pdf-to-img/actions)
