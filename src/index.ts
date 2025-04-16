@@ -50,34 +50,6 @@ export type Options = {
 };
 
 /**
- * Helper function to calculate the scaled dimensions while maintaining aspect ratio
- */
-function calculateAspectRatioFit(
-  srcWidth: number,
-  srcHeight: number,
-  maxWidth: number | undefined,
-  maxHeight: number | undefined
-): { width: number; height: number; scale: number } {
-  let width = srcWidth;
-  let height = srcHeight;
-  let scale = 1;
-
-  if (maxWidth && width > maxWidth) {
-    scale = maxWidth / width;
-    width = maxWidth;
-    height *= scale;
-  }
-
-  if (maxHeight && height > maxHeight) {
-    scale = maxHeight / height;
-    height = maxHeight;
-    width *= scale;
-  }
-
-  return { width: width, height: height, scale: scale };
-}
-
-/**
  * Converts a PDF to a series of images. This returns a `Symbol.asyncIterator`
  *
  * @param input Either (a) the path to a pdf file, or (b) a data url, or (c) a buffer, or (d) a ReadableStream.
@@ -121,33 +93,30 @@ export async function pdf(
           if (this.pg < pdfDocument.numPages) {
             this.pg += 1;
             const page = await pdfDocument.getPage(this.pg);
-            const originalViewport = page.getViewport({
-              scale: options.scale ?? 1,
-            });
+            let viewport = page.getViewport({ scale: options.scale ?? 1 });
 
-            let viewport: _pdfjs.PageViewport;
+            let targetWidth = options.maxWidth ?? viewport.width;
+            let targetHeight = options.maxHeight ?? viewport.height;
 
             if (options.maintainAspectRatio) {
-              const dimensions = calculateAspectRatioFit(
-                originalViewport.width,
-                originalViewport.height,
-                options.maxWidth,
-                options.maxHeight
-              );
-              
-              viewport = page.getViewport({ scale: dimensions.scale * (options.scale ?? 1) });
+              let scaleX = targetWidth / viewport.width;
+              let scaleY = targetHeight / viewport.height;
+              let scale = Math.min(scaleX, scaleY);
+
+              viewport = page.getViewport({ scale: scale });
             } else {
-              const targetWidth = options.maxWidth ?? originalViewport.width;
-              const targetHeight = options.maxHeight ?? originalViewport.height;
-               viewport = page.getViewport({
-                 scale: Math.min(targetWidth / originalViewport.width, targetHeight / originalViewport.height)
-               })
+              // Maintain the scale, but set the canvas dimensions to be what the target is to prevent ratio issues
+
+              let scaleX = targetWidth / viewport.width;
+              let scaleY = targetHeight / viewport.height;
+
+              viewport = page.getViewport({ scale: Math.min(scaleX, scaleY) });
             }
 
             const canvasFactory = new NodeCanvasFactory();
             const { canvas, context } = canvasFactory.create(
-              viewport.width,
-              viewport.height
+              Math.round(viewport.width),
+              Math.round(viewport.height)
             );
 
             await page.render({
